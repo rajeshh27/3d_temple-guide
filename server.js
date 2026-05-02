@@ -184,3 +184,8 @@ app.get('/api/temples', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Temple Backend running at http://localhost:${PORT}`);
 });
+
+
+app.get("/", (req, res) => {
+  res.send("Temple Guide Backend Running 🚀");
+});
