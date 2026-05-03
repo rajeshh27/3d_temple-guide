@@ -222,6 +222,77 @@
             pointer-events: none;   /* pass touches to XR by default */
             font-family: 'Inter', sans-serif;
         }
+
+        /* Virtual Joystick Styles */
+        #joystick-wrapper {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.05);
+            opacity: 0.8;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        #joystick-wrapper:hover {
+            opacity: 1;
+        }
+
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #joystick-stick {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            border-radius: 50%;
+            box-shadow: 0 5px 20px rgba(234, 88, 12, 0.4), 0 0 0 4px rgba(255,255,255,0.1);
+            cursor: grab;
+            transition: transform 0.1s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #joystick-stick::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+        }
+
+        .joystick-label {
+            position: absolute;
+            color: rgba(255,255,255,0.3);
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            pointer-events: none;
+        }
+
+        .label-up { top: 15px; }
+        .label-down { bottom: 15px; }
+        .label-left { left: 15px; }
+        .label-right { right: 15px; }
         #ar-dom-overlay.active { display: block; }
 
         /* Top-left AR badge */
@@ -821,6 +892,17 @@
         <span id="narration-status-text" class="text-xs text-amber-200/80 font-medium">Narrating...</span>
     </div>
 
+    <!-- Virtual Joystick for 3D Control -->
+    <div id="joystick-wrapper" class="pointer-events-auto">
+        <div class="joystick-label label-up">Tilt</div>
+        <div class="joystick-label label-down">Tilt</div>
+        <div class="joystick-label label-left">Rot</div>
+        <div class="joystick-label label-right">Rot</div>
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
+        </div>
+    </div>
+
     <!-- Three.js Setup -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -873,11 +955,25 @@
             controls.autoRotate = true;
             controls.autoRotateSpeed = 0.5;
 
-            // Stop auto-rotate on interaction
+            // Stop auto-rotate on interaction and resume after
+            let rotationTimeout;
             controls.addEventListener('start', () => { 
                 isAutoRotating = false; 
                 controls.autoRotate = false; 
+                if (rotationTimeout) clearTimeout(rotationTimeout);
             });
+
+            controls.addEventListener('end', () => {
+                rotationTimeout = setTimeout(() => {
+                    isAutoRotating = true;
+                    controls.autoRotate = true;
+                }, 3000);
+            });
+
+            // Show joystick in 3D mode (not AR)
+            document.getElementById('joystick-wrapper').style.display = 'flex';
+            initJoystick();
+            initKeyboardControls();
             
             animate();
             // Performance Audit
@@ -1653,6 +1749,101 @@
                 container.appendChild(span);
             }
         })();
+
+        // -----------------------------------------------------------------
+        // Controller Logic (Joystick & Keyboard)
+        // -----------------------------------------------------------------
+        function initJoystick() {
+            const wrapper = document.getElementById('joystick-wrapper');
+            const stick = document.getElementById('joystick-stick');
+            let startX, startY;
+            let isDragging = false;
+            const maxDistance = 50;
+
+            const onStart = (e) => {
+                isDragging = true;
+                const pos = e.type.includes('touch') ? e.touches[0] : e;
+                startX = pos.clientX;
+                startY = pos.clientY;
+                isAutoRotating = false;
+                controls.autoRotate = false;
+            };
+
+            const onMove = (e) => {
+                if (!isDragging) return;
+                const pos = e.type.includes('touch') ? e.touches[0] : e;
+                let dx = pos.clientX - startX;
+                let dy = pos.clientY - startY;
+
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > maxDistance) {
+                    const angle = Math.atan2(dy, dx);
+                    dx = Math.cos(angle) * maxDistance;
+                    dy = Math.sin(angle) * maxDistance;
+                }
+
+                stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+                // Rotation mapping
+                const normX = dx / maxDistance;
+                const normY = dy / maxDistance;
+
+                templeGroup.rotation.y += normX * 0.05;
+                templeGroup.rotation.x = Math.max(-0.4, Math.min(0.4, templeGroup.rotation.x + normY * 0.02));
+            };
+
+            const onEnd = () => {
+                isDragging = false;
+                stick.style.transform = 'translate(0px, 0px)';
+                // Resume auto-rotation check
+                setTimeout(() => {
+                    if (!isDragging) {
+                        controls.autoRotate = true;
+                        isAutoRotating = true;
+                    }
+                }, 3000);
+            };
+
+            wrapper.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+
+            wrapper.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', (e) => {
+                if(isDragging) e.preventDefault();
+                onMove(e);
+            }, { passive: false });
+            window.addEventListener('touchend', onEnd);
+        }
+
+        function initKeyboardControls() {
+            window.addEventListener('keydown', (e) => {
+                const speed = 0.05;
+                let moved = false;
+                switch(e.key.toLowerCase()) {
+                    case 'a': case 'arrowleft':
+                        templeGroup.rotation.y -= speed;
+                        moved = true;
+                        break;
+                    case 'd': case 'arrowright':
+                        templeGroup.rotation.y += speed;
+                        moved = true;
+                        break;
+                    case 'w': case 'arrowup':
+                        templeGroup.rotation.x -= speed * 0.5;
+                        moved = true;
+                        break;
+                    case 's': case 'arrowdown':
+                        templeGroup.rotation.x += speed * 0.5;
+                        moved = true;
+                        break;
+                }
+                if (moved) {
+                    isAutoRotating = false;
+                    controls.autoRotate = false;
+                }
+            });
+        }
 
         // Initialize the 3D scene in the background (but don't start narration yet)
         let journeyStarted = false;
