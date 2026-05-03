@@ -1,2 +1,3 @@
 Temple Backend running at http://localhost:3000
 Gemini API unavailable (quota/network). Chatbot using local fallback.
+Gemini API unavailable (quota/network). Chatbot using local fallback.
