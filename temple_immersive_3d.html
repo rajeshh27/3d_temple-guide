@@ -210,101 +210,187 @@
             50% { transform: scaleY(1.2); }
         }
 
-        /* ── Splash Overlay ── */
+        /* ══════════════════════════════════════════
+           AR DOM-OVERLAY HUD
+        ══════════════════════════════════════════ */
+        /* The dom-overlay covers the full screen inside the XR session */
+        #ar-dom-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;   /* pass touches to XR by default */
+            font-family: 'Inter', sans-serif;
+        }
+        #ar-dom-overlay.active { display: block; }
+
+        /* Top-left AR badge */
+        .ar-badge {
+            position: absolute;
+            top: 20px; left: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 14px;
+            border-radius: 30px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,180,60,0.3);
+            color: #ffd580;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .ar-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #ff3333;
+            animation: arBlink 1s ease-in-out infinite;
+        }
+        @keyframes arBlink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        /* Top-right close button — pointer-events: auto so it's tappable */
+        #ar-close-btn {
+            position: absolute;
+            top: 16px; right: 16px;
+            pointer-events: auto;
+            width: 46px; height: 46px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #ar-close-btn:active { background: rgba(220,50,50,0.6); }
+
+        /* Centered tap-to-place instruction */
+        #ar-place-hint {
+            position: absolute;
+            bottom: 60px;
+            left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,200,80,0.25);
+            border-radius: 24px;
+            padding: 12px 24px;
+            color: rgba(255,230,160,0.9);
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
+            transition: opacity 0.4s;
+        }
+        #ar-place-hint.hidden { opacity: 0; pointer-events: none; }
+
+
+        /* ══════════════════════════════════════════
+           CINEMATIC SPLASH OVERLAY
+        ══════════════════════════════════════════ */
         #splash-overlay {
             position: fixed;
             inset: 0;
             z-index: 99999;
-            background: linear-gradient(160deg, #0f0a05 0%, #1a1008 40%, #0d0d0d 100%);
+            background: radial-gradient(ellipse at 50% 60%, #1c0f04 0%, #0a0702 45%, #000000 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            transition: opacity 0.8s cubic-bezier(0.4,0,0.2,1), transform 0.8s cubic-bezier(0.4,0,0.2,1);
+            overflow: hidden;
+            transition: opacity 1s cubic-bezier(0.4,0,0.2,1), transform 1s cubic-bezier(0.4,0,0.2,1);
         }
         #splash-overlay.fade-out {
             opacity: 0;
-            transform: scale(1.05);
+            transform: scale(1.08);
             pointer-events: none;
         }
 
-        .splash-icon {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(255,150,30,0.15), rgba(255,100,0,0.08));
-            border: 1px solid rgba(255,180,80,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 32px;
-            animation: splashPulse 2.5s ease-in-out infinite;
-        }
-        @keyframes splashPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(255,150,30,0.3); }
-            50% { box-shadow: 0 0 0 20px rgba(255,150,30,0); }
-        }
-
-        .splash-title {
-            font-size: 36px;
-            font-weight: 300;
-            color: rgba(255,220,180,0.95);
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-        .splash-subtitle {
-            font-size: 14px;
-            color: rgba(255,200,140,0.5);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 48px;
-        }
-
-        .splash-begin-btn {
-            position: relative;
-            padding: 16px 48px;
-            border: 1px solid rgba(255,180,80,0.3);
-            border-radius: 60px;
-            background: linear-gradient(135deg, rgba(255,150,30,0.12), rgba(255,100,0,0.06));
-            color: #ffcc80;
-            font-size: 15px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
-            overflow: hidden;
-        }
-        .splash-begin-btn:hover {
-            background: linear-gradient(135deg, rgba(255,150,30,0.25), rgba(255,100,0,0.15));
-            border-color: rgba(255,180,80,0.5);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(255,150,30,0.2);
-        }
-        .splash-begin-btn:active {
-            transform: translateY(0) scale(0.97);
-        }
-        .splash-begin-btn .btn-shimmer {
+        /* ── Background ambient glow ── */
+        .splash-bg-glow {
             position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,200,100,0.1), transparent);
-            animation: shimmer 2.5s ease-in-out infinite;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
         }
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+        .splash-bg-glow.g1 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(200,90,10,0.18) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation: glowBreath 4s ease-in-out infinite;
+        }
+        .splash-bg-glow.g2 {
+            width: 900px; height: 400px;
+            background: radial-gradient(ellipse, rgba(255,140,30,0.07) 0%, transparent 70%);
+            bottom: -100px; left: 50%;
+            transform: translateX(-50%);
+        }
+        @keyframes glowBreath {
+            0%,100% { opacity: 0.7; transform: translate(-50%,-50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%,-50%) scale(1.15); }
         }
 
-        .splash-hint {
-            margin-top: 24px;
-            font-size: 11px;
-            color: rgba(255,255,255,0.2);
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        /* ── Mandala Rings ── */
+        .mandala-rings {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
         }
+        .mandala-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid;
+            top: 50%; left: 50%;
+        }
+        .mandala-ring:nth-child(1) {
+            width: 220px; height: 220px;
+            margin: -110px 0 0 -110px;
+            border-color: rgba(255,160,40,0.25);
+            animation: rotateCW 20s linear infinite;
+        }
+        .mandala-ring:nth-child(2) {
+            width: 340px; height: 340px;
+            margin: -170px 0 0 -170px;
+            border-color: rgba(255,130,20,0.15);
+            border-style: dashed;
+            animation: rotateCCW 30s linear infinite;
+        }
+        .mandala-ring:nth-child(3) {
+            width: 460px; height: 460px;
+            margin: -230px 0 0 -230px;
+            border-color: rgba(255,100,10,0.08);
+            animation: rotateCW 45s linear infinite;
+        }
+        .mandala-ring:nth-child(4) {
+            width: 600px; height: 600px;
+            margin: -300px 0 0 -300px;
+            border-color: rgba(255,80,0,0.05);
+            border-style: dotted;
+            animation: rotateCCW 60s linear infinite;
+        }
+        /* Dots on ring 1 */
+        .mandala-ring:nth-child(1)::before,
+        .mandala-ring:nth-child(1)::after,
+        .mandala-ring:nth-child(2)::before,
+        .mandala-ring:nth-child(2)::after {
+            content: '';
+            position: absolute;
+            width: 5px; height: 5px;
+            background: rgba(255,180,60,0.5);
+            border-radius: 50%;
+        }
+        .mandala-ring:nth-child(1)::before { top: -2.5px; left: 50%; transform: translateX(-50%); }
+        .mandala-ring:nth-child(1)::after  { bottom: -2.5px; left: 50%; transform: translateX(-50%); }
+        .mandala-ring:nth-child(2)::before { top: -2.5px; left: 50%; transform: translateX(-50%); }
+        .mandala-ring:nth-child(2)::after  { bottom: -2.5px; left: 50%; transform: translateX(-50%); }
+        @keyframes rotateCW  { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes rotateCCW { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(-360deg); } }
 
-        /* Decorative particles on splash */
+        /* ── Floating Particles ── */
         .splash-particles {
             position: absolute;
             inset: 0;
@@ -313,17 +399,220 @@
         }
         .splash-particles span {
             position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(255,180,80,0.3);
             border-radius: 50%;
             animation: floatParticle linear infinite;
         }
         @keyframes floatParticle {
-            0% { transform: translateY(100vh) scale(0); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-20vh) scale(1); opacity: 0; }
+            0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+            8%   { opacity: 1; }
+            92%  { opacity: 0.6; }
+            100% { transform: translateY(-15vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ── Top decorative divider line ── */
+        .splash-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 0.4s forwards;
+        }
+        .splash-divider-line {
+            width: 60px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,180,60,0.5), transparent);
+        }
+        .splash-divider-dot {
+            width: 5px; height: 5px;
+            background: rgba(255,160,40,0.7);
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255,160,40,0.8);
+        }
+
+        /* ── Central Icon Ring ── */
+        .splash-icon-wrap {
+            position: relative;
+            margin-bottom: 36px;
+            opacity: 0;
+            animation: fadeSlideUp 0.9s ease 0.2s forwards;
+        }
+        .splash-icon {
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, rgba(255,200,80,0.15), rgba(200,80,10,0.1));
+            border: 1px solid rgba(255,180,60,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+            box-shadow:
+                0 0 0 10px rgba(255,150,30,0.06),
+                0 0 0 22px rgba(255,150,30,0.03),
+                0 8px 40px rgba(180,80,0,0.4);
+            animation: iconPulse 3s ease-in-out infinite;
+        }
+        @keyframes iconPulse {
+            0%,100% { box-shadow: 0 0 0 10px rgba(255,150,30,0.06), 0 0 0 22px rgba(255,150,30,0.03), 0 8px 40px rgba(180,80,0,0.4); }
+            50%     { box-shadow: 0 0 0 14px rgba(255,150,30,0.10), 0 0 0 30px rgba(255,150,30,0.04), 0 8px 60px rgba(200,100,0,0.5); }
+        }
+
+        /* ── Badge ── */
+        .splash-badge {
+            position: absolute;
+            top: -12px; right: -16px;
+            background: linear-gradient(135deg, #c25a00, #ff9620);
+            color: #fff8ee;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+            box-shadow: 0 2px 12px rgba(200,90,0,0.5);
+        }
+
+        /* ── Text Content ── */
+        .splash-eyebrow {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: rgba(255,160,50,0.7);
+            margin-bottom: 12px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 0.5s forwards;
+        }
+        .splash-title {
+            font-size: clamp(28px, 5vw, 46px);
+            font-weight: 300;
+            color: rgba(255,235,200,0.97);
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+            margin-bottom: 10px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 0.65s forwards;
+        }
+        .splash-title strong {
+            font-weight: 600;
+            background: linear-gradient(135deg, #ffcc70, #ff8c20);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .splash-subtitle {
+            font-size: 12px;
+            color: rgba(255,200,140,0.45);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 0.8s forwards;
+        }
+        .splash-desc {
+            font-size: 13px;
+            color: rgba(255,210,170,0.45);
+            line-height: 1.7;
+            max-width: 320px;
+            margin: 0 auto 44px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 0.95s forwards;
+        }
+
+        /* ── Feature Pills ── */
+        .splash-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 1.1s forwards;
+        }
+        .splash-pill {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,180,60,0.2);
+            background: rgba(255,150,30,0.07);
+            color: rgba(255,210,150,0.6);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* ── Begin Button ── */
+        .splash-begin-btn {
+            position: relative;
+            padding: 18px 56px;
+            border: 1px solid rgba(255,180,80,0.35);
+            border-radius: 60px;
+            background: linear-gradient(135deg, rgba(255,150,30,0.18), rgba(200,80,0,0.10));
+            color: #ffd590;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            overflow: hidden;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 1.25s forwards;
+            box-shadow: 0 4px 30px rgba(200,100,0,0.2), inset 0 1px 0 rgba(255,220,120,0.1);
+        }
+        .splash-begin-btn:hover {
+            background: linear-gradient(135deg, rgba(255,150,30,0.32), rgba(200,80,0,0.20));
+            border-color: rgba(255,200,80,0.6);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(200,100,0,0.35), inset 0 1px 0 rgba(255,220,120,0.15);
+            color: #ffe8b0;
+        }
+        .splash-begin-btn:active { transform: translateY(0) scale(0.97); }
+        .splash-begin-btn .btn-shimmer {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,220,120,0.15) 50%, transparent 100%);
+            animation: shimmer 2.8s ease-in-out infinite;
+        }
+        @keyframes shimmer {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* ── Hint ── */
+        .splash-hint {
+            margin-top: 22px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s ease 1.4s forwards;
+        }
+
+        /* ── Shared keyframe ── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Bottom ambient strip ── */
+        .splash-bottom-strip {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,160,40,0.4) 30%, rgba(255,200,80,0.7) 50%, rgba(255,160,40,0.4) 70%, transparent 100%);
+            animation: stripScan 3s ease-in-out infinite;
+        }
+        @keyframes stripScan {
+            0%,100% { opacity: 0.4; }
+            50%     { opacity: 1; }
         }
 
         /* Hide UI overlay until journey begins */
@@ -333,31 +622,89 @@
 </head>
 <body>
 
-    <!-- ═══ Splash Overlay ═══ -->
+    <!-- ═══ CINEMATIC SPLASH OVERLAY ═══ -->
     <div id="splash-overlay">
+
+        <!-- Ambient background glows -->
+        <div class="splash-bg-glow g1"></div>
+        <div class="splash-bg-glow g2"></div>
+
+        <!-- Mandala Rings -->
+        <div class="mandala-rings">
+            <div class="mandala-ring"></div>
+            <div class="mandala-ring"></div>
+            <div class="mandala-ring"></div>
+            <div class="mandala-ring"></div>
+        </div>
+
         <!-- Floating particles -->
         <div class="splash-particles" id="splash-particles"></div>
 
-        <div class="splash-icon">
-            <span class="material-symbols-outlined" style="font-size:36px; color:#ff9620; font-variation-settings:'FILL' 1">temple_hindu</span>
-        </div>
+        <!-- Bottom ambient strip -->
+        <div class="splash-bottom-strip"></div>
 
-        <h1 class="splash-title" id="splash-temple-name">Brihadeeswarar Temple</h1>
-        <p class="splash-subtitle" id="splash-temple-location">Thanjavur, Tamil Nadu</p>
+        <!-- ── Main Content (stacked, centered) ── -->
+        <div style="position:relative; z-index:10; display:flex; flex-direction:column; align-items:center;">
 
-        <button class="splash-begin-btn" id="begin-journey-btn" onclick="beginJourney()">
-            <span class="btn-shimmer"></span>
-            Begin Discovery
-        </button>
+            <!-- Central Icon -->
+            <div class="splash-icon-wrap">
+                <div class="splash-icon">
+                    <span class="material-symbols-outlined" style="font-size:40px; color:#ff9820; font-variation-settings:'FILL' 1">temple_hindu</span>
+                </div>
+                <div class="splash-badge">🔴 Live 3D</div>
+            </div>
 
-        <div class="splash-hint">
-            <span class="material-symbols-outlined" style="font-size:14px">volume_up</span>
-            Audio narration will begin automatically
+            <!-- Divider -->
+            <div class="splash-divider">
+                <div class="splash-divider-line"></div>
+                <div class="splash-divider-dot"></div>
+                <div class="splash-divider-line" style="transform:scaleX(-1)"></div>
+            </div>
+
+            <!-- Text -->
+            <p class="splash-eyebrow">TempleGate · Immersive Heritage</p>
+            <h1 class="splash-title"><strong id="splash-temple-name">Brihadeeswarar Temple</strong></h1>
+            <p class="splash-subtitle" id="splash-temple-location">Thanjavur, Tamil Nadu</p>
+            <p class="splash-desc">Step inside 1,000 years of living history. Explore every stone, hear every story — in stunning interactive 3D.</p>
+
+            <!-- Feature Pills -->
+            <div class="splash-pills">
+                <span class="splash-pill">🧊 3D Model</span>
+                <span class="splash-pill">🎙️ AI Narration</span>
+                <span class="splash-pill">🚀 Space Mode</span>
+                <span class="splash-pill">📡 AR View</span>
+            </div>
+
+            <!-- CTA -->
+            <button class="splash-begin-btn" id="begin-journey-btn" onclick="beginJourney()">
+                <span class="btn-shimmer"></span>
+                ✦ &nbsp;Begin Your Journey
+            </button>
+
+            <div class="splash-hint">
+                <span class="material-symbols-outlined" style="font-size:13px">volume_up</span>
+                Audio narration begins automatically
+            </div>
         </div>
     </div>
 
-    <!-- Camera Overlay for AR -->
-    <video id="ar-video" class="fixed inset-0 w-full h-full object-cover z-0 hidden" autoplay playsinline></video>
+    <!-- ═══ AR DOM-OVERLAY (WebXR) ═══ -->
+    <!-- This div is passed as dom-overlay root to the XR session.
+         The browser compositor handles the camera passthrough natively.
+         Only this overlay div (and its children) renders on top. -->
+    <div id="ar-dom-overlay">
+        <div class="ar-badge">
+            <div class="ar-dot"></div>
+            AR · LIVE
+        </div>
+        <button id="ar-close-btn" onclick="exitAR()">
+            <span class="material-symbols-outlined" style="font-size:22px">close</span>
+        </button>
+        <div id="ar-place-hint">
+            🔵 Point camera at a flat surface &amp; tap to place temple
+        </div>
+    </div>
+
 
     <!-- UI Overlay (hidden until journey begins) -->
     <div id="ui-overlay" class="fixed inset-0 pointer-events-none z-50 flex flex-col justify-between p-6 ui-hidden">
@@ -477,6 +824,8 @@
     <!-- Three.js Setup -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
     
     <script>
         let scene, camera, renderer, controls, templeGroup;
@@ -499,10 +848,10 @@
             document.body.appendChild(renderer.domElement);
 
             // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            const ambientLight = new THREE.AmbientLight(0xfff0d0, 0.6);   // warm ivory, not pure white
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffcc88, 1.2);
+            const directionalLight = new THREE.DirectionalLight(0xffb060, 1.4);  // rich golden sun
             directionalLight.position.set(5, 10, 7);
             scene.add(directionalLight);
 
@@ -557,66 +906,82 @@
             // Clear previous
             while(templeGroup.children.length > 0) templeGroup.remove(templeGroup.children[0]);
 
-            const stoneMat = new THREE.MeshPhongMaterial({ 
-                color: 0x8b7355, 
-                flatShading: true,
-                shininess: 5
-            });
+            const loader = new THREE.GLTFLoader();
+            
+            // Add DRACO support (common for large GLB files)
+            const dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+            loader.setDRACOLoader(dracoLoader);
 
-            const detailMat = new THREE.MeshPhongMaterial({ 
-                color: 0x5d4a36,
-                flatShading: true
-            });
-
-            // 1. The Main Mandapa (Long Hall)
-            const mandapaGeom = new THREE.BoxGeometry(8, 1.5, 3.5);
-            const mandapa = new THREE.Mesh(mandapaGeom, stoneMat);
-            mandapa.position.x = -2;
-            templeGroup.add(mandapa);
-
-            // 2. The Pillars (Side)
-            for(let i = -5; i <= 1; i += 1.5) {
-                const pillarGeom = new THREE.CylinderGeometry(0.15, 0.2, 1.2, 8);
-                const p1 = new THREE.Mesh(pillarGeom, detailMat);
-                p1.position.set(i, -0.15, 1.6);
-                templeGroup.add(p1);
-
-                const p2 = p1.clone();
-                p2.position.z = -1.6;
-                templeGroup.add(p2);
-            }
-
-            // 3. The Vimana (Tower) - Tiered Structure
-            const tierCount = 8;
-            for(let i = 0; i < tierCount; i++) {
-                const size = 3.5 - (i * 0.4);
-                const h = 0.8;
-                const tierGeom = new THREE.BoxGeometry(size, h, size);
-                const tier = new THREE.Mesh(tierGeom, stoneMat);
-                tier.position.set(3, 0.75 + (i * 0.7), 0);
+            console.log("Starting to load Temple.glb...");
+            
+            loader.load('Temple.glb', function (gltf) {
+                const model = gltf.scene;
                 
-                // Add minor carvings
-                if (i < 5) {
-                    const detail = new THREE.Mesh(new THREE.BoxGeometry(size + 0.2, 0.2, size + 0.2), detailMat);
-                    detail.position.y = 0.3;
-                    tier.add(detail);
-                }
+                // Reset model position/rotation before calculating box
+                model.position.set(0,0,0);
+                model.rotation.set(0,0,0);
+                model.scale.set(1,1,1);
+
+                // Auto-center and Scale
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
                 
-                templeGroup.add(tier);
-            }
+                // Scale to fit (target max dimension of 12 for better visibility)
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 12 / (maxDim || 1);
+                model.scale.set(scale, scale, scale);
+                
+                // Center the model relative to its own geometry
+                model.position.x = -center.x * scale;
+                model.position.y = -center.y * scale;
+                model.position.z = -center.z * scale;
+                
+                templeGroup.add(model);
+                
+                // Apply warm brownish sandstone colour to all model meshes
+                // and store it as the canonical "Now" colour
+                const SANDSTONE = 0xb8845a;   // warm Dravidian stone brown
+                model.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        // Clone the material so we don't mutate shared instances
+                        child.material = child.material.clone();
+                        child.material.color.setHex(SANDSTONE);
+                        // Store as original so updatePhase(2) restores this
+                        child.userData.originalColor = SANDSTONE;
+                    }
+                });
 
-            // 4. The Kalasam (Top Peak)
-            const kalasamGeom = new THREE.ConeGeometry(0.3, 0.8, 8);
-            const kalasamMat = new THREE.MeshPhongMaterial({ color: 0xffd700, shininess: 100 });
-            const kalasam = new THREE.Mesh(kalasamGeom, kalasamMat);
-            kalasam.position.set(3, 0.75 + (tierCount * 0.7), 0);
-            templeGroup.add(kalasam);
-
-            // Center everything
-            const box = new THREE.Box3().setFromObject(templeGroup);
-            const center = box.getCenter(new THREE.Vector3());
-            templeGroup.position.x = -center.x;
-            templeGroup.position.y = -center.y;
+                // Ensure everything is updated for the initial phase
+                updatePhase(currentPhase);
+                
+                console.log("Temple model loaded successfully. Scale:", scale);
+            }, 
+            (xhr) => {
+                const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+                console.log(`Loading: ${percent}%`);
+            },
+            (error) => {
+                console.error("Error loading temple model:", error);
+                // On-screen notification for user
+                const msg = document.createElement('div');
+                msg.style.position = 'fixed';
+                msg.style.top = '20px';
+                msg.style.left = '50%';
+                msg.style.transform = 'translateX(-50%)';
+                msg.style.background = 'rgba(255,0,0,0.8)';
+                msg.style.color = 'white';
+                msg.style.padding = '10px 20px';
+                msg.style.borderRadius = '8px';
+                msg.style.zIndex = '9999';
+                msg.innerHTML = `⚠️ Failed to load Temple.glb. Please ensure the file is in the project folder and you are running a local server.`;
+                document.body.appendChild(msg);
+                
+                // Fallback procedural base if loading fails
+                const fallback = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 6), new THREE.MeshPhongMaterial({color: 0x8b7355}));
+                templeGroup.add(fallback);
+            });
         }
 
 
@@ -630,28 +995,26 @@
                 node.classList.toggle('active', idx === phase);
             });
 
-            // Adjust 3D Model appearance based on phase
-            templeGroup.children.forEach((child) => {
-                if (child.material) {
-                    if (phase === 0) { // Ancient
+            // Adjust 3D Model appearance based on phase using traverse
+            templeGroup.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    // Store original color if not already stored
+                    if (!child.userData.originalColor) {
+                        child.userData.originalColor = child.material.color.getHex();
+                    }
+
+                    if (phase === 0) { // Ancient (Sepia/Stone)
                         child.material.color.setHex(0x5a4138);
-                        child.material.shininess = 0;
-                    } else if (phase === 1) { // Middle
+                        if (child.material.shininess !== undefined) child.material.shininess = 0;
+                    } else if (phase === 1) { // Middle (Warm Stone)
                         child.material.color.setHex(0x8b7355);
-                        child.material.shininess = 5;
-                    } else { // Now
-                        child.material.color.setHex(0xd2b48c);
-                        child.material.shininess = 20;
+                        if (child.material.shininess !== undefined) child.material.shininess = 5;
+                    } else { // Now (Original Model Colors)
+                        child.material.color.setHex(child.userData.originalColor);
+                        if (child.material.shininess !== undefined) child.material.shininess = 20;
                     }
                 }
             });
-
-            // Special effect for Now (Golden Peak)
-            const peak = templeGroup.children[templeGroup.children.length - 1];
-            if (peak && peak.geometry.type === 'ConeGeometry') {
-                peak.material.color.setHex(phase === 2 ? 0xffd700 : 0x8b7355);
-                peak.scale.set(phase === 0 ? 0.001 : 1, phase === 0 ? 0.001 : 1, phase === 0 ? 0.001 : 1);
-            }
 
             // Trigger AI narration for the new era (only after user clicks Begin)
             if (journeyStarted && typeof narrator !== 'undefined') {
@@ -737,32 +1100,169 @@
         };
 
 
-        // AR Toggle
-        const arBtn = document.getElementById('ar-toggle');
-        const video = document.getElementById('ar-video');
-        let isAR = false;
+        // ════════════════════════════════════════════════════════
+        //  AR MODE  — WebXR immersive-ar with hit-test
+        //  Surface detection → reticle ring → tap to place temple
+        // ════════════════════════════════════════════════════════
+        const arBtn        = document.getElementById('ar-toggle');
+        const arDomOverlay = document.getElementById('ar-dom-overlay');
+        const arPlaceHint  = document.getElementById('ar-place-hint');
+        let   isAR         = false;
+        let   xrSession    = null;
+        let   hitTestSource = null;
+        let   xrLocalSpace  = null;
+        let   arReticle     = null;
+        let   templeInAR    = false;
+        let   arOriginalScale = null;
 
-        arBtn.onclick = async () => {
-            if (!isAR) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    video.srcObject = stream;
-                    video.classList.remove('hidden');
-                    renderer.setClearAlpha(0);
-                    isAR = true;
-                    arBtn.classList.add('bg-orange-500', 'text-white');
-                } catch (err) {
-                    alert("Camera access denied or unavailable.");
-                }
-            } else {
-                const stream = video.srcObject;
-                if (stream) stream.getTracks().forEach(t => t.stop());
-                video.classList.add('hidden');
-                renderer.setClearAlpha(1);
-                isAR = false;
-                arBtn.classList.remove('bg-orange-500');
+        // ── Reticle: a golden ring that snaps to detected surfaces ──
+        function createReticle() {
+            const ring = new THREE.RingGeometry(0.12, 0.17, 36);
+            ring.rotateX(-Math.PI / 2);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xffcc33,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.85
+            });
+            // Small inner dot
+            const dot = new THREE.Mesh(new THREE.CircleGeometry(0.04, 24), mat);
+            dot.rotateX(-Math.PI / 2);
+
+            arReticle = new THREE.Group();
+            arReticle.add(new THREE.Mesh(ring, mat));
+            arReticle.add(dot);
+            arReticle.matrixAutoUpdate = false; // we set matrix from hit-test
+            arReticle.visible = false;
+            scene.add(arReticle);
+        }
+
+        // ── Enter AR ──
+        async function enterAR() {
+            if (!navigator.xr) {
+                alert('⚠️ WebXR not available. Use Chrome on Android for AR.');
+                return;
             }
-        };
+            const supported = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+            if (!supported) {
+                alert('⚠️ AR is not supported on this device/browser.\nPlease use Chrome 81+ on an ARCore-compatible Android device.');
+                return;
+            }
+
+            try {
+                xrSession = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures : ['hit-test'],
+                    optionalFeatures : ['dom-overlay', 'light-estimation'],
+                    domOverlay       : { root: arDomOverlay }
+                });
+            } catch(err) {
+                alert('⚠️ Could not start AR session: ' + err.message);
+                return;
+            }
+
+            // Hand the XR session to Three.js
+            await renderer.xr.setSession(xrSession);
+
+            // Reference spaces
+            xrLocalSpace = await xrSession.requestReferenceSpace('local');
+            const viewerSpace = await xrSession.requestReferenceSpace('viewer');
+            hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+
+            // Create reticle
+            createReticle();
+
+            // Scale temple down to tabletop size (WebXR unit = 1 metre)
+            // The group holds a model already scaled to ~12 Three.js units.
+            // We want the temple to be ~0.4 m wide on a table.
+            arOriginalScale = templeGroup.scale.clone();
+            templeGroup.scale.setScalar(0.035);   // 12 * 0.035 ≈ 0.42 m
+            templeGroup.visible = false;           // hide until placed
+            templeInAR = false;
+
+            // Show HUD overlay
+            arDomOverlay.classList.add('active');
+            arPlaceHint.classList.remove('hidden');
+
+            isAR = true;
+            arBtn.classList.add('bg-orange-500');
+
+            // Tap to place
+            xrSession.addEventListener('select', onARTap);
+
+            // Update render loop to use XR frames (hit-test every frame)
+            renderer.setAnimationLoop((timestamp, frame) => {
+                if (frame && hitTestSource && xrLocalSpace) {
+                    const hits = frame.getHitTestResults(hitTestSource);
+                    if (hits.length > 0 && !templeInAR) {
+                        const pose = hits[0].getPose(xrLocalSpace);
+                        arReticle.visible = true;
+                        arReticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        arReticle.visible = false;
+                    }
+                }
+                renderer.render(scene, camera);
+            });
+
+            // Clean up when the XR session ends (user presses the device back button, etc.)
+            xrSession.addEventListener('end', () => { if (isAR) _cleanupAR(); });
+        }
+
+        // ── Tap: place temple at reticle position ──
+        function onARTap() {
+            if (templeInAR || !arReticle || !arReticle.visible) return;
+
+            // Decompose the reticle matrix to get world position + rotation
+            const pos  = new THREE.Vector3();
+            const quat = new THREE.Quaternion();
+            const scl  = new THREE.Vector3();
+            arReticle.matrix.decompose(pos, quat, scl);
+
+            // Place temple: sit on the surface (y = hit-point y)
+            templeGroup.position.copy(pos);
+            templeGroup.quaternion.copy(quat);
+            templeGroup.visible = true;
+            templeInAR = true;
+
+            arReticle.visible = false;
+            arPlaceHint.classList.add('hidden');
+        }
+
+        // ── Exit AR (called by HUD close button OR session end) ──
+        function exitAR() {
+            if (xrSession) { xrSession.end(); } // triggers 'end' event
+            _cleanupAR();
+        }
+
+        function _cleanupAR() {
+            isAR = false;
+
+            // Remove reticle
+            if (arReticle) { scene.remove(arReticle); arReticle = null; }
+
+            // Restore temple
+            if (arOriginalScale) templeGroup.scale.copy(arOriginalScale);
+            templeGroup.position.set(0, 0, 0);
+            templeGroup.quaternion.identity();
+            templeGroup.visible = true;
+            templeInAR = false;
+
+            // Reset hit-test
+            hitTestSource = null;
+            xrLocalSpace  = null;
+            xrSession     = null;
+
+            // Hide HUD
+            arDomOverlay.classList.remove('active');
+
+            arBtn.classList.remove('bg-orange-500');
+
+            // Restore normal animation loop
+            animate();
+        }
+
+        arBtn.onclick = () => isAR ? exitAR() : enterAR();
+
 
 
 
@@ -1136,13 +1636,20 @@
         // Generate floating particles for the splash
         (function createSplashParticles() {
             const container = document.getElementById('splash-particles');
-            for (let i = 0; i < 30; i++) {
+            const colors = [
+                'rgba(255,180,60,0.55)', 'rgba(255,130,30,0.4)',
+                'rgba(255,220,100,0.35)', 'rgba(200,80,10,0.3)'
+            ];
+            for (let i = 0; i < 55; i++) {
                 const span = document.createElement('span');
-                span.style.left = Math.random() * 100 + '%';
-                span.style.animationDuration = (4 + Math.random() * 8) + 's';
-                span.style.animationDelay = (Math.random() * 6) + 's';
-                span.style.width = (1 + Math.random() * 3) + 'px';
-                span.style.height = span.style.width;
+                const size = 1.5 + Math.random() * 4;
+                span.style.left   = Math.random() * 100 + '%';
+                span.style.width  = size + 'px';
+                span.style.height = size + 'px';
+                span.style.background = colors[Math.floor(Math.random() * colors.length)];
+                span.style.boxShadow  = `0 0 ${size * 2}px ${colors[0]}`;
+                span.style.animationDuration = (6 + Math.random() * 12) + 's';
+                span.style.animationDelay    = (Math.random() * 8) + 's';
                 container.appendChild(span);
             }
         })();
