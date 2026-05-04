@@ -771,8 +771,21 @@
         <button id="ar-close-btn" onclick="exitAR()">
             <span class="material-symbols-outlined" style="font-size:22px">close</span>
         </button>
+        
+        <!-- Controls for the model once placed -->
+        <div id="ar-model-controls" class="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-64 pointer-events-none opacity-0 transition-opacity duration-500">
+            <div class="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-white/10 pointer-events-auto">
+                <span class="material-symbols-outlined text-amber-400 text-sm">rotate_right</span>
+                <input type="range" id="ar-rotate-slider" min="0" max="6.28" step="0.01" value="0" class="flex-1 accent-amber-500">
+            </div>
+            <div class="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-white/10 pointer-events-auto">
+                <span class="material-symbols-outlined text-amber-400 text-sm">straighten</span>
+                <input type="range" id="ar-scale-slider" min="0.01" max="0.1" step="0.001" value="0.04" class="flex-1 accent-amber-500">
+            </div>
+        </div>
+
         <div id="ar-place-hint">
-            🔵 Point camera at a flat surface &amp; tap to place temple
+            🔴 Move camera to find a surface...
         </div>
     </div>
 
@@ -1030,8 +1043,9 @@
                 model.scale.set(scale, scale, scale);
                 
                 // Center the model relative to its own geometry
+                // We center X and Z, but put the bottom (min.y) at Y=0 so it sits ON surfaces
                 model.position.x = -center.x * scale;
-                model.position.y = -center.y * scale;
+                model.position.y = -box.min.y * scale; 
                 model.position.z = -center.z * scale;
                 
                 templeGroup.add(model);
@@ -1210,25 +1224,45 @@
         let   arReticle     = null;
         let   templeInAR    = false;
         let   arOriginalScale = null;
+        let   originalBackground = null;
 
         // ── Reticle: a golden ring that snaps to detected surfaces ──
         function createReticle() {
-            const ring = new THREE.RingGeometry(0.12, 0.17, 36);
+            // A more premium, animated reticle
+            const ring = new THREE.RingGeometry(0.1, 0.14, 64);
             ring.rotateX(-Math.PI / 2);
             const mat = new THREE.MeshBasicMaterial({
-                color: 0xffcc33,
+                color: 0xffaa00,
                 side: THREE.DoubleSide,
                 transparent: true,
-                opacity: 0.85
+                opacity: 0.6
             });
-            // Small inner dot
-            const dot = new THREE.Mesh(new THREE.CircleGeometry(0.04, 24), mat);
-            dot.rotateX(-Math.PI / 2);
-
+            
             arReticle = new THREE.Group();
-            arReticle.add(new THREE.Mesh(ring, mat));
+            const ringMesh = new THREE.Mesh(ring, mat);
+            arReticle.add(ringMesh);
+
+            // Add a small inner pulsing dot
+            const dot = new THREE.Mesh(new THREE.CircleGeometry(0.02, 32), new THREE.MeshBasicMaterial({color: 0xffaa00}));
+            dot.rotateX(-Math.PI / 2);
             arReticle.add(dot);
-            arReticle.matrixAutoUpdate = false; // we set matrix from hit-test
+
+            // Add some "corner" brackets for a tech/ancient fusion look
+            for(let i=0; i<4; i++) {
+                const corner = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.01), mat);
+                corner.position.set(0.15, 0.001, 0);
+                corner.rotation.x = -Math.PI / 2;
+                const pivot = new THREE.Group();
+                pivot.rotation.y = (i * Math.PI / 2) + Math.PI/4;
+                pivot.add(corner);
+                const corner2 = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.05), mat);
+                corner2.position.set(0.17, 0.001, 0.02);
+                corner2.rotation.x = -Math.PI / 2;
+                pivot.add(corner2);
+                arReticle.add(pivot);
+            }
+
+            arReticle.matrixAutoUpdate = false;
             arReticle.visible = false;
             scene.add(arReticle);
         }
@@ -1246,46 +1280,49 @@
             }
 
             try {
+                // Ensure transparency
+                originalBackground = scene.background;
+                scene.background = null;
+                renderer.setClearAlpha(0);
+
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures : ['hit-test'],
                     optionalFeatures : ['dom-overlay', 'light-estimation'],
                     domOverlay       : { root: arDomOverlay }
                 });
             } catch(err) {
+                scene.background = originalBackground;
                 alert('⚠️ Could not start AR session: ' + err.message);
                 return;
             }
 
-            // Hand the XR session to Three.js
             await renderer.xr.setSession(xrSession);
 
-            // Reference spaces
             xrLocalSpace = await xrSession.requestReferenceSpace('local');
             const viewerSpace = await xrSession.requestReferenceSpace('viewer');
             hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
 
-            // Create reticle
             createReticle();
 
-            // Scale temple down to tabletop size (WebXR unit = 1 metre)
-            // The group holds a model already scaled to ~12 Three.js units.
-            // We want the temple to be ~0.4 m wide on a table.
+            // Store original scale and hide temple for placement
             arOriginalScale = templeGroup.scale.clone();
-            templeGroup.scale.setScalar(0.035);   // 12 * 0.035 ≈ 0.42 m
-            templeGroup.visible = false;           // hide until placed
+            // Scale temple to tabletop size (approx 30-40cm)
+            templeGroup.scale.setScalar(0.04); 
+            templeGroup.visible = false;
             templeInAR = false;
 
-            // Show HUD overlay
             arDomOverlay.classList.add('active');
             arPlaceHint.classList.remove('hidden');
+            arPlaceHint.innerHTML = "🔴 Move camera to find a surface...";
 
             isAR = true;
             arBtn.classList.add('bg-orange-500');
+            
+            // Disable OrbitControls in AR
+            if (controls) controls.enabled = false;
 
-            // Tap to place
             xrSession.addEventListener('select', onARTap);
 
-            // Update render loop to use XR frames (hit-test every frame)
             renderer.setAnimationLoop((timestamp, frame) => {
                 if (frame && hitTestSource && xrLocalSpace) {
                     const hits = frame.getHitTestResults(hitTestSource);
@@ -1293,35 +1330,76 @@
                         const pose = hits[0].getPose(xrLocalSpace);
                         arReticle.visible = true;
                         arReticle.matrix.fromArray(pose.transform.matrix);
-                    } else {
+                        arPlaceHint.innerHTML = "✅ Surface found! Tap to place temple";
+                    } else if (!templeInAR) {
                         arReticle.visible = false;
+                        arPlaceHint.innerHTML = "🔴 Move camera to scan table/floor...";
                     }
                 }
+                
+                // Pulsing effect for reticle
+                if (arReticle && arReticle.visible) {
+                    const s = 1 + Math.sin(Date.now() * 0.005) * 0.1;
+                    arReticle.scale.set(s, s, s);
+                }
+
                 renderer.render(scene, camera);
             });
 
-            // Clean up when the XR session ends (user presses the device back button, etc.)
             xrSession.addEventListener('end', () => { if (isAR) _cleanupAR(); });
         }
 
         // ── Tap: place temple at reticle position ──
         function onARTap() {
-            if (templeInAR || !arReticle || !arReticle.visible) return;
+            if (!arReticle || !arReticle.visible) return;
 
-            // Decompose the reticle matrix to get world position + rotation
             const pos  = new THREE.Vector3();
             const quat = new THREE.Quaternion();
             const scl  = new THREE.Vector3();
             arReticle.matrix.decompose(pos, quat, scl);
 
-            // Place temple: sit on the surface (y = hit-point y)
             templeGroup.position.copy(pos);
-            templeGroup.quaternion.copy(quat);
+            // We keep the reticle's Y rotation but reset X and Z to keep temple upright
+            const euler = new THREE.Euler().setFromQuaternion(quat);
+            templeGroup.rotation.set(0, euler.y, 0);
+            
             templeGroup.visible = true;
             templeInAR = true;
 
-            arReticle.visible = false;
-            arPlaceHint.classList.add('hidden');
+            // Optional: small "thump" animation when placed
+            templeGroup.position.y += 0.2;
+            new Promise(r => {
+                let start = Date.now();
+                const anim = () => {
+                    let t = (Date.now() - start) / 200;
+                    if (t > 1) { templeGroup.position.y = pos.y; return; }
+                    templeGroup.position.y = pos.y + 0.2 * (1 - t);
+                    requestAnimationFrame(anim);
+                };
+                anim();
+            });
+
+            arPlaceHint.innerHTML = "✨ Temple Placed! Tap elsewhere to move it.";
+            
+            // Show model controls
+            const controlsDiv = document.getElementById('ar-model-controls');
+            controlsDiv.classList.remove('opacity-0');
+            controlsDiv.classList.add('opacity-100');
+
+            // Setup slider listeners (one-time or update)
+            const rotateSlider = document.getElementById('ar-rotate-slider');
+            const scaleSlider  = document.getElementById('ar-scale-slider');
+            
+            rotateSlider.oninput = (e) => {
+                templeGroup.rotation.y = parseFloat(e.target.value);
+            };
+            scaleSlider.oninput = (e) => {
+                templeGroup.scale.setScalar(parseFloat(e.target.value));
+            };
+
+            setTimeout(() => {
+                if (isAR) arPlaceHint.classList.add('hidden');
+            }, 3000);
         }
 
         // ── Exit AR (called by HUD close button OR session end) ──
@@ -1343,13 +1421,23 @@
             templeGroup.visible = true;
             templeInAR = false;
 
+            // Restore background
+            scene.background = originalBackground;
+            renderer.setClearAlpha(1);
+            
+            // Re-enable controls
+            controls.enabled = true;
+
             // Reset hit-test
             hitTestSource = null;
             xrLocalSpace  = null;
             xrSession     = null;
 
-            // Hide HUD
+            // Hide HUD and controls
             arDomOverlay.classList.remove('active');
+            const controlsDiv = document.getElementById('ar-model-controls');
+            controlsDiv.classList.add('opacity-0');
+            controlsDiv.classList.remove('opacity-100');
 
             arBtn.classList.remove('bg-orange-500');
 
