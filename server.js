@@ -40,6 +40,58 @@ app.post('/api/chat', async (req, res) => {
 });
 
 
+// --- ElevenLabs TTS Endpoint ---
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const VOICE_MAP = {
+    'ancient': 'pNInz6obpg8ndPuo7H8W', // Adam (Deep, authoritative)
+    'middle': 'EXAVITQu4vr4xnSDxMaL',  // Bella (Soft, storytelling)
+    'modern': 'MF3mGyEYCl7XYW7Lsc9S',  // Mark (Clear, educational)
+    'rishi': 'pNInz6obpg8ndPuo7H8W',   // Fallback for benchmark
+};
+
+app.post('/api/voice', async (req, res) => {
+    const { text, voiceId, lang } = req.body;
+    
+    try {
+        if (!ELEVENLABS_API_KEY || ELEVENLABS_API_KEY === 'your_elevenlabs_key_here') {
+            return res.status(400).json({ error: "ElevenLabs API Key not configured" });
+        }
+
+        const selectedVoice = VOICE_MAP[voiceId] || VOICE_MAP['modern'];
+        
+        const response = await axios({
+            method: 'post',
+            url: `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`,
+            data: {
+                text: text,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.75
+                }
+            },
+            headers: {
+                'Accept': 'audio/mpeg',
+                'xi-api-key': ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json',
+            },
+            responseType: 'stream'
+        });
+
+        res.set({
+            'Content-Type': 'audio/mpeg',
+            'Transfer-Encoding': 'chunked'
+        });
+
+        response.data.pipe(res);
+
+    } catch (err) {
+        console.error("ElevenLabs Error:", err.response ? err.response.data : err.message);
+        res.status(500).json({ error: "Failed to generate voice" });
+    }
+});
+
+
 // --- AI Narrative Engine ---
 // Generates historically rich narration text for a specific temple, era, and language.
 // The frontend will feed this text to Web Speech API for playback.
