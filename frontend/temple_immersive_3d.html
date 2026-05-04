@@ -624,6 +624,9 @@
     </style>
 </head>
 <body>
+    <!-- Webcam for non-WebXR AR fallback -->
+    <video id="ar-video" autoplay playsinline class="fixed inset-0 w-full h-full object-cover hidden" style="z-index: -1;"></video>
+
 
     <!-- ═══ CINEMATIC SPLASH OVERLAY ═══ -->
     <div id="splash-overlay">
@@ -1135,10 +1138,14 @@
         let   templeInAR    = false;
         let   arOriginalScale = null;
         let   originalBackground = null;
+        let   isWebcamAR     = false;
+        let   webcamStream   = null;
         
-        // Touch Rotation variables for AR
+        // Touch Rotation & Scaling variables for AR
         let   isTouchingAR = false;
         let   lastTouchX = 0;
+        let   initialPinchDistance = null;
+        let   initialScale = 1;
 
         // ── Reticle: a golden ring that snaps to detected surfaces ──
         function createReticle() {
@@ -1181,23 +1188,93 @@
             scene.add(arReticle);
         }
 
+        // ── Webcam AR Fallback ──
+        async function startWebcamAR() {
+            const video = document.getElementById('ar-video');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                webcamStream = stream;
+                
+                // Set scene background to null for transparency
+                originalBackground = scene.background;
+                scene.background = null;
+                renderer.setClearAlpha(0);
+                
+                isWebcamAR = true;
+                isAR = true;
+                templeInAR = true; // Enable rotation interactions
+                arBtn.classList.add('bg-orange-500');
+                
+                // Show AR Overlay for the Close button
+                arDomOverlay.classList.add('active');
+                
+                // Show placement hint
+                arPlaceHint.classList.remove('hidden');
+                arPlaceHint.innerHTML = "✨ Camera AR Active! Temple rendered in space.";
+                
+                // Adjust temple for "tabletop" view in camera mode
+                arOriginalScale = templeGroup.scale.clone();
+                templeGroup.scale.setScalar(0.04);
+                templeGroup.position.set(0, -0.5, -2); // Slightly closer and higher
+                templeGroup.visible = true;
+                
+                // Disable OrbitControls
+                if (controls) controls.enabled = false;
+                
+                // If on mobile, enable device orientation for "Magic Window"
+                if (window.DeviceOrientationEvent && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    window.addEventListener('deviceorientation', handleOrientation, true);
+                }
+                
+                setTimeout(() => arPlaceHint.classList.add('hidden'), 4000);
+            } catch (err) {
+                console.error("Webcam AR failed:", err);
+                alert("⚠️ Could not access camera for AR. Please ensure permissions are granted.");
+            }
+        }
+
+        function handleOrientation(event) {
+            if (!isWebcamAR) return;
+            // Simple rotation based on phone tilt
+            const alpha = event.alpha ? THREE.MathUtils.degToRad(event.alpha) : 0;
+            const beta = event.beta ? THREE.MathUtils.degToRad(event.beta) : 0;
+            const gamma = event.gamma ? THREE.MathUtils.degToRad(event.gamma) : 0;
+            
+            // This is a simplified "Magic Window" effect
+            // In a real app we'd use a more complex quaternion math
+            templeGroup.rotation.y = alpha;
+        }
+
         // ── Enter AR ──
         async function enterAR() {
             if (!navigator.xr) {
-                alert('⚠️ WebXR not available. Use Chrome on Android for AR.');
+                // Fallback to Webcam AR if WebXR is missing
+                console.log("WebXR not found, falling back to Webcam AR");
+                await startWebcamAR();
                 return;
             }
             const supported = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
             if (!supported) {
-                alert('⚠️ AR is not supported on this device/browser.\nPlease use Chrome 81+ on an ARCore-compatible Android device.');
+                // Fallback to Webcam AR if immersive-ar is not supported
+                console.log("WebXR immersive-ar not supported, falling back to Webcam AR");
+                await startWebcamAR();
                 return;
             }
 
             try {
-                // Ensure transparency
+                // Ensure transparency & hide space effects
                 originalBackground = scene.background;
                 scene.background = null;
                 renderer.setClearAlpha(0);
+                
+                if (starField) starField.visible = false;
+                if (isSpaceMode) {
+                    templeGroup.position.y = 0; // Reset float
+                }
 
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures : ['hit-test'],
@@ -1240,21 +1317,43 @@
             // Add Touch Listeners for Direct AR Interaction (Rotation Only)
             arDomOverlay.addEventListener('touchstart', (e) => {
                 if (!templeInAR) return;
-                isTouchingAR = true;
-                lastTouchX = e.touches[0].clientX;
+                if (e.touches.length === 1) {
+                    isTouchingAR = true;
+                    lastTouchX = e.touches[0].clientX;
+                } else if (e.touches.length === 2) {
+                    // Start pinch zoom
+                    initialPinchDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    initialScale = templeGroup.scale.x;
+                }
             }, { passive: true });
 
             arDomOverlay.addEventListener('touchmove', (e) => {
-                if (!isTouchingAR || !templeInAR) return;
-                const deltaX = e.touches[0].clientX - lastTouchX;
-                lastTouchX = e.touches[0].clientX;
+                if (!templeInAR) return;
                 
-                // Rotate temple around Y axis only
-                templeGroup.rotation.y += deltaX * 0.01;
+                if (e.touches.length === 1 && isTouchingAR) {
+                    const deltaX = e.touches[0].clientX - lastTouchX;
+                    lastTouchX = e.touches[0].clientX;
+                    templeGroup.rotation.y += deltaX * 0.01;
+                } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+                    const currentDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const zoomFactor = currentDistance / initialPinchDistance;
+                    const newScale = initialScale * zoomFactor;
+                    
+                    // Constrain scale
+                    const clampedScale = Math.max(0.01, Math.min(newScale, 0.5));
+                    templeGroup.scale.setScalar(clampedScale);
+                }
             }, { passive: true });
 
             arDomOverlay.addEventListener('touchend', () => {
                 isTouchingAR = false;
+                initialPinchDistance = null;
             }, { passive: true });
 
             renderer.setAnimationLoop((timestamp, frame) => {
@@ -1330,6 +1429,19 @@
 
         function _cleanupAR() {
             isAR = false;
+            isWebcamAR = false;
+
+            // Stop webcam stream if active
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+                const video = document.getElementById('ar-video');
+                video.srcObject = null;
+                video.classList.add('hidden');
+            }
+            
+            // Remove orientation listener
+            window.removeEventListener('deviceorientation', handleOrientation, true);
 
             // Remove reticle
             if (arReticle) { scene.remove(arReticle); arReticle = null; }
@@ -1341,9 +1453,10 @@
             templeGroup.visible = true;
             templeInAR = false;
 
-            // Restore background
+            // Restore background & space effects
             scene.background = originalBackground;
             renderer.setClearAlpha(1);
+            if (starField) starField.visible = true;
             
             // Re-enable controls
             controls.enabled = true;
