@@ -627,6 +627,9 @@
     <!-- Webcam for non-WebXR AR fallback -->
     <video id="ar-video" autoplay playsinline class="fixed inset-0 w-full h-full object-cover hidden" style="z-index: -1;"></video>
 
+    <!-- Background Music -->
+    <audio id="bg-music" src="Bgmusic.mp3" loop></audio>
+
 
     <!-- ═══ CINEMATIC SPLASH OVERLAY ═══ -->
     <div id="splash-overlay">
@@ -727,6 +730,11 @@
                 </button>
                 <button id="ar-toggle" class="pointer-events-auto glass-btn p-3 rounded-full text-white">
                     <span class="material-symbols-outlined">center_focus_weak</span>
+                </button>
+
+                <!-- Music Toggle Button -->
+                <button id="music-toggle" class="pointer-events-auto glass-btn p-3 rounded-full text-white" title="Background Music">
+                    <span class="material-symbols-outlined" id="music-icon">music_note</span>
                 </button>
 
                 <!-- Audio Narrator Button -->
@@ -1047,23 +1055,36 @@
 
 
         function animate() {
-            renderer.setAnimationLoop(() => {
-                const now = performance.now();
-                frameCount++;
-                if (now - lastTime >= 1000) {
-                    fps = frameCount;
-                    frameCount = 0;
-                    lastTime = now;
-                    // Optional: log FPS to console every 5 seconds
-                    if (Math.random() < 0.05) console.log(`Current FPS: ${fps}`);
-                }
-
-                controls.update();
-                
-                if (isSpaceMode) {
-                    floatTime += 0.01;
-                    templeGroup.position.y += Math.sin(floatTime) * 0.005;
-                    templeGroup.rotation.y += 0.005;
+            renderer.setAnimationLoop((timestamp, frame) => {
+                // XR-specific logic
+                if (renderer.xr.isPresenting && frame) {
+                    if (hitTestSource && xrLocalSpace) {
+                        const hits = frame.getHitTestResults(hitTestSource);
+                        if (hits.length > 0 && !templeInAR) {
+                            const pose = hits[0].getPose(xrLocalSpace);
+                            arReticle.visible = true;
+                            arReticle.matrix.fromArray(pose.transform.matrix);
+                            arPlaceHint.innerHTML = "✅ Surface found! Tap to place temple";
+                        } else if (!templeInAR) {
+                            arReticle.visible = false;
+                            arPlaceHint.innerHTML = "🔴 Move camera to scan table/floor...";
+                        }
+                    }
+                    
+                    // Pulsing effect for reticle
+                    if (arReticle && arReticle.visible) {
+                        const s = 1 + Math.sin(Date.now() * 0.005) * 0.1;
+                        arReticle.scale.set(s, s, s);
+                    }
+                } else {
+                    // Non-XR (Normal or Webcam AR)
+                    controls.update();
+                    
+                    if (isSpaceMode) {
+                        floatTime += 0.01;
+                        templeGroup.position.y += Math.sin(floatTime) * 0.005;
+                        templeGroup.rotation.y += 0.005;
+                    }
                 }
 
                 renderer.render(scene, camera);
@@ -1266,15 +1287,14 @@
             }
 
             try {
-                // Ensure transparency & hide space effects
+                // Force transparency for passthrough
                 originalBackground = scene.background;
                 scene.background = null;
+                renderer.setClearColor(0x000000, 0);
                 renderer.setClearAlpha(0);
                 
                 if (starField) starField.visible = false;
-                if (isSpaceMode) {
-                    templeGroup.position.y = 0; // Reset float
-                }
+                if (isSpaceMode) templeGroup.position.y = 0;
 
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures : ['hit-test'],
@@ -1282,7 +1302,9 @@
                     domOverlay       : { root: arDomOverlay }
                 });
             } catch(err) {
+                console.error("AR Session Error:", err);
                 scene.background = originalBackground;
+                renderer.setClearAlpha(1);
                 alert('⚠️ Could not start AR session: ' + err.message);
                 return;
             }
@@ -1297,7 +1319,6 @@
 
             // Store original scale and hide temple for placement
             arOriginalScale = templeGroup.scale.clone();
-            // Scale temple to tabletop size (approx 30-40cm)
             templeGroup.scale.setScalar(0.04); 
             templeGroup.visible = false;
             templeInAR = false;
@@ -1309,77 +1330,54 @@
             isAR = true;
             arBtn.classList.add('bg-orange-500');
             
-            // Disable OrbitControls in AR
             if (controls) controls.enabled = false;
 
             xrSession.addEventListener('select', onARTap);
             
-            // Add Touch Listeners for Direct AR Interaction (Rotation Only)
-            arDomOverlay.addEventListener('touchstart', (e) => {
-                if (!templeInAR) return;
-                if (e.touches.length === 1) {
-                    isTouchingAR = true;
-                    lastTouchX = e.touches[0].clientX;
-                } else if (e.touches.length === 2) {
-                    // Start pinch zoom
-                    initialPinchDistance = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    initialScale = templeGroup.scale.x;
-                }
-            }, { passive: true });
-
-            arDomOverlay.addEventListener('touchmove', (e) => {
-                if (!templeInAR) return;
-                
-                if (e.touches.length === 1 && isTouchingAR) {
-                    const deltaX = e.touches[0].clientX - lastTouchX;
-                    lastTouchX = e.touches[0].clientX;
-                    templeGroup.rotation.y += deltaX * 0.01;
-                } else if (e.touches.length === 2 && initialPinchDistance !== null) {
-                    const currentDistance = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    const zoomFactor = currentDistance / initialPinchDistance;
-                    const newScale = initialScale * zoomFactor;
-                    
-                    // Constrain scale
-                    const clampedScale = Math.max(0.01, Math.min(newScale, 0.5));
-                    templeGroup.scale.setScalar(clampedScale);
-                }
-            }, { passive: true });
-
-            arDomOverlay.addEventListener('touchend', () => {
-                isTouchingAR = false;
-                initialPinchDistance = null;
-            }, { passive: true });
-
-            renderer.setAnimationLoop((timestamp, frame) => {
-                if (frame && hitTestSource && xrLocalSpace) {
-                    const hits = frame.getHitTestResults(hitTestSource);
-                    if (hits.length > 0 && !templeInAR) {
-                        const pose = hits[0].getPose(xrLocalSpace);
-                        arReticle.visible = true;
-                        arReticle.matrix.fromArray(pose.transform.matrix);
-                        arPlaceHint.innerHTML = "✅ Surface found! Tap to place temple";
-                    } else if (!templeInAR) {
-                        arReticle.visible = false;
-                        arPlaceHint.innerHTML = "🔴 Move camera to scan table/floor...";
-                    }
-                }
-                
-                // Pulsing effect for reticle
-                if (arReticle && arReticle.visible) {
-                    const s = 1 + Math.sin(Date.now() * 0.005) * 0.1;
-                    arReticle.scale.set(s, s, s);
-                }
-
-                renderer.render(scene, camera);
-            });
+            // Add Touch Listeners for Direct AR Interaction
+            arDomOverlay.addEventListener('touchstart', arTouchStart, { passive: true });
+            arDomOverlay.addEventListener('touchmove', arTouchMove, { passive: true });
+            arDomOverlay.addEventListener('touchend', arTouchEnd, { passive: true });
 
             xrSession.addEventListener('end', () => { if (isAR) _cleanupAR(); });
+        }
+
+        // Helper functions for AR touch
+        function arTouchStart(e) {
+            if (!templeInAR) return;
+            if (e.touches.length === 1) {
+                isTouchingAR = true;
+                lastTouchX = e.touches[0].clientX;
+            } else if (e.touches.length === 2) {
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = templeGroup.scale.x;
+            }
+        }
+
+        function arTouchMove(e) {
+            if (!templeInAR) return;
+            if (e.touches.length === 1 && isTouchingAR) {
+                const deltaX = e.touches[0].clientX - lastTouchX;
+                lastTouchX = e.touches[0].clientX;
+                templeGroup.rotation.y += deltaX * 0.01;
+            } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const zoomFactor = currentDistance / initialPinchDistance;
+                const newScale = initialScale * zoomFactor;
+                const clampedScale = Math.max(0.01, Math.min(newScale, 0.5));
+                templeGroup.scale.setScalar(clampedScale);
+            }
+        }
+
+        function arTouchEnd() {
+            isTouchingAR = false;
+            initialPinchDistance = null;
         }
 
         // ── Tap: place temple at reticle position ──
@@ -1470,8 +1468,12 @@
             arDomOverlay.classList.remove('active');
             arBtn.classList.remove('bg-orange-500');
 
-            // Restore normal animation loop
-            animate();
+            // Remove touch listeners
+            arDomOverlay.removeEventListener('touchstart', arTouchStart);
+            arDomOverlay.removeEventListener('touchmove', arTouchMove);
+            arDomOverlay.removeEventListener('touchend', arTouchEnd);
+
+
         }
 
         arBtn.onclick = () => isAR ? exitAR() : enterAR();
@@ -1884,6 +1886,14 @@
         function beginJourney() {
             journeyStarted = true;
 
+            // Start background music
+            const bgMusic = document.getElementById('bg-music');
+            if (bgMusic) {
+                bgMusic.volume = 0.4;
+                bgMusic.play().catch(e => console.error("BGM playback failed:", e));
+                document.getElementById('music-toggle').classList.add('bg-amber-600/40');
+            }
+
             // Fade out splash
             const splash = document.getElementById('splash-overlay');
             splash.classList.add('fade-out');
@@ -1903,6 +1913,23 @@
                 narrator.narrateEra(currentPhase);
             }, 500);
         }
+
+        // Music Toggle Logic
+        const musicBtn = document.getElementById('music-toggle');
+        const bgMusic = document.getElementById('bg-music');
+        const musicIcon = document.getElementById('music-icon');
+
+        musicBtn.onclick = () => {
+            if (bgMusic.paused) {
+                bgMusic.play();
+                musicIcon.textContent = 'music_note';
+                musicBtn.classList.add('bg-amber-600/40');
+            } else {
+                bgMusic.pause();
+                musicIcon.textContent = 'music_off';
+                musicBtn.classList.remove('bg-amber-600/40');
+            }
+        };
 
     </script>
 </body>
