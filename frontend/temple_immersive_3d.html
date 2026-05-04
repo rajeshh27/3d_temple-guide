@@ -219,80 +219,11 @@
             position: fixed;
             inset: 0;
             z-index: 9999;
-            pointer-events: none;   /* pass touches to XR by default */
+            pointer-events: auto;   /* Changed to auto to allow swipe-to-rotate logic */
             font-family: 'Inter', sans-serif;
         }
 
         /* Virtual Joystick Styles */
-        #joystick-wrapper {
-            position: fixed;
-            bottom: 40px;
-            left: 40px;
-            width: 140px;
-            height: 140px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            z-index: 1000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            touch-action: none;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.05);
-            opacity: 0.8;
-            transition: opacity 0.3s, transform 0.3s;
-        }
-
-        #joystick-wrapper:hover {
-            opacity: 1;
-        }
-
-        #joystick-base {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #joystick-stick {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #f97316, #ea580c);
-            border-radius: 50%;
-            box-shadow: 0 5px 20px rgba(234, 88, 12, 0.4), 0 0 0 4px rgba(255,255,255,0.1);
-            cursor: grab;
-            transition: transform 0.1s ease-out;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #joystick-stick::after {
-            content: '';
-            width: 20px;
-            height: 20px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 50%;
-        }
-
-        .joystick-label {
-            position: absolute;
-            color: rgba(255,255,255,0.3);
-            font-size: 10px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            pointer-events: none;
-        }
-
-        .label-up { top: 15px; }
-        .label-down { bottom: 15px; }
-        .label-left { left: 15px; }
-        .label-right { right: 15px; }
         #ar-dom-overlay.active { display: block; }
 
         /* Top-left AR badge */
@@ -353,6 +284,7 @@
             text-align: center;
             white-space: nowrap;
             transition: opacity 0.4s;
+            pointer-events: none; /* Hint doesn't block rotation swipes */
         }
         #ar-place-hint.hidden { opacity: 0; pointer-events: none; }
 
@@ -771,19 +703,6 @@
         <button id="ar-close-btn" onclick="exitAR()">
             <span class="material-symbols-outlined" style="font-size:22px">close</span>
         </button>
-        
-        <!-- Controls for the model once placed -->
-        <div id="ar-model-controls" class="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-64 pointer-events-none opacity-0 transition-opacity duration-500">
-            <div class="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-white/10 pointer-events-auto">
-                <span class="material-symbols-outlined text-amber-400 text-sm">rotate_right</span>
-                <input type="range" id="ar-rotate-slider" min="0" max="6.28" step="0.01" value="0" class="flex-1 accent-amber-500">
-            </div>
-            <div class="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-white/10 pointer-events-auto">
-                <span class="material-symbols-outlined text-amber-400 text-sm">straighten</span>
-                <input type="range" id="ar-scale-slider" min="0.01" max="0.1" step="0.001" value="0.04" class="flex-1 accent-amber-500">
-            </div>
-        </div>
-
         <div id="ar-place-hint">
             🔴 Move camera to find a surface...
         </div>
@@ -905,16 +824,7 @@
         <span id="narration-status-text" class="text-xs text-amber-200/80 font-medium">Narrating...</span>
     </div>
 
-    <!-- Virtual Joystick for 3D Control -->
-    <div id="joystick-wrapper" class="pointer-events-auto">
-        <div class="joystick-label label-up">Tilt</div>
-        <div class="joystick-label label-down">Tilt</div>
-        <div class="joystick-label label-left">Rot</div>
-        <div class="joystick-label label-right">Rot</div>
-        <div id="joystick-base">
-            <div id="joystick-stick"></div>
-        </div>
-    </div>
+    <!-- No joystick UI as per user request -->
 
     <!-- Three.js Setup -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -967,6 +877,11 @@
             controls.dampingFactor = 0.05;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 0.5;
+            
+            // Direct Interaction: Disable Tilt (restrict polar angle)
+            controls.minPolarAngle = Math.PI / 2.5; 
+            controls.maxPolarAngle = Math.PI / 2.5;
+            controls.enablePan = false; // Disable panning to keep focus on temple
 
             // Stop auto-rotate on interaction and resume after
             let rotationTimeout;
@@ -983,11 +898,6 @@
                 }, 3000);
             });
 
-            // Show joystick in 3D mode (not AR)
-            document.getElementById('joystick-wrapper').style.display = 'flex';
-            initJoystick();
-            initKeyboardControls();
-            
             animate();
             // Performance Audit
             auditPerformance();
@@ -1225,6 +1135,10 @@
         let   templeInAR    = false;
         let   arOriginalScale = null;
         let   originalBackground = null;
+        
+        // Touch Rotation variables for AR
+        let   isTouchingAR = false;
+        let   lastTouchX = 0;
 
         // ── Reticle: a golden ring that snaps to detected surfaces ──
         function createReticle() {
@@ -1322,6 +1236,26 @@
             if (controls) controls.enabled = false;
 
             xrSession.addEventListener('select', onARTap);
+            
+            // Add Touch Listeners for Direct AR Interaction (Rotation Only)
+            arDomOverlay.addEventListener('touchstart', (e) => {
+                if (!templeInAR) return;
+                isTouchingAR = true;
+                lastTouchX = e.touches[0].clientX;
+            }, { passive: true });
+
+            arDomOverlay.addEventListener('touchmove', (e) => {
+                if (!isTouchingAR || !templeInAR) return;
+                const deltaX = e.touches[0].clientX - lastTouchX;
+                lastTouchX = e.touches[0].clientX;
+                
+                // Rotate temple around Y axis only
+                templeGroup.rotation.y += deltaX * 0.01;
+            }, { passive: true });
+
+            arDomOverlay.addEventListener('touchend', () => {
+                isTouchingAR = false;
+            }, { passive: true });
 
             renderer.setAnimationLoop((timestamp, frame) => {
                 if (frame && hitTestSource && xrLocalSpace) {
@@ -1366,6 +1300,9 @@
             templeGroup.visible = true;
             templeInAR = true;
 
+            // Direct Interaction: Reset rotation to face user initially
+            templeGroup.rotation.set(0, 0, 0);
+
             // Optional: small "thump" animation when placed
             templeGroup.position.y += 0.2;
             new Promise(r => {
@@ -1379,24 +1316,7 @@
                 anim();
             });
 
-            arPlaceHint.innerHTML = "✨ Temple Placed! Tap elsewhere to move it.";
-            
-            // Show model controls
-            const controlsDiv = document.getElementById('ar-model-controls');
-            controlsDiv.classList.remove('opacity-0');
-            controlsDiv.classList.add('opacity-100');
-
-            // Setup slider listeners (one-time or update)
-            const rotateSlider = document.getElementById('ar-rotate-slider');
-            const scaleSlider  = document.getElementById('ar-scale-slider');
-            
-            rotateSlider.oninput = (e) => {
-                templeGroup.rotation.y = parseFloat(e.target.value);
-            };
-            scaleSlider.oninput = (e) => {
-                templeGroup.scale.setScalar(parseFloat(e.target.value));
-            };
-
+            arPlaceHint.innerHTML = "✨ Temple Placed! Swipe to rotate.";
             setTimeout(() => {
                 if (isAR) arPlaceHint.classList.add('hidden');
             }, 3000);
@@ -1433,12 +1353,8 @@
             xrLocalSpace  = null;
             xrSession     = null;
 
-            // Hide HUD and controls
+            // Hide HUD
             arDomOverlay.classList.remove('active');
-            const controlsDiv = document.getElementById('ar-model-controls');
-            controlsDiv.classList.add('opacity-0');
-            controlsDiv.classList.remove('opacity-100');
-
             arBtn.classList.remove('bg-orange-500');
 
             // Restore normal animation loop
@@ -1841,97 +1757,7 @@
         // -----------------------------------------------------------------
         // Controller Logic (Joystick & Keyboard)
         // -----------------------------------------------------------------
-        function initJoystick() {
-            const wrapper = document.getElementById('joystick-wrapper');
-            const stick = document.getElementById('joystick-stick');
-            let startX, startY;
-            let isDragging = false;
-            const maxDistance = 50;
-
-            const onStart = (e) => {
-                isDragging = true;
-                const pos = e.type.includes('touch') ? e.touches[0] : e;
-                startX = pos.clientX;
-                startY = pos.clientY;
-                isAutoRotating = false;
-                controls.autoRotate = false;
-            };
-
-            const onMove = (e) => {
-                if (!isDragging) return;
-                const pos = e.type.includes('touch') ? e.touches[0] : e;
-                let dx = pos.clientX - startX;
-                let dy = pos.clientY - startY;
-
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance > maxDistance) {
-                    const angle = Math.atan2(dy, dx);
-                    dx = Math.cos(angle) * maxDistance;
-                    dy = Math.sin(angle) * maxDistance;
-                }
-
-                stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-                // Rotation mapping
-                const normX = dx / maxDistance;
-                const normY = dy / maxDistance;
-
-                templeGroup.rotation.y += normX * 0.05;
-                templeGroup.rotation.x = Math.max(-0.4, Math.min(0.4, templeGroup.rotation.x + normY * 0.02));
-            };
-
-            const onEnd = () => {
-                isDragging = false;
-                stick.style.transform = 'translate(0px, 0px)';
-                // Resume auto-rotation check
-                setTimeout(() => {
-                    if (!isDragging) {
-                        controls.autoRotate = true;
-                        isAutoRotating = true;
-                    }
-                }, 3000);
-            };
-
-            wrapper.addEventListener('mousedown', onStart);
-            window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onEnd);
-
-            wrapper.addEventListener('touchstart', onStart, { passive: false });
-            window.addEventListener('touchmove', (e) => {
-                if(isDragging) e.preventDefault();
-                onMove(e);
-            }, { passive: false });
-            window.addEventListener('touchend', onEnd);
-        }
-
-        function initKeyboardControls() {
-            window.addEventListener('keydown', (e) => {
-                const speed = 0.05;
-                let moved = false;
-                switch(e.key.toLowerCase()) {
-                    case 'a': case 'arrowleft':
-                        templeGroup.rotation.y -= speed;
-                        moved = true;
-                        break;
-                    case 'd': case 'arrowright':
-                        templeGroup.rotation.y += speed;
-                        moved = true;
-                        break;
-                    case 'w': case 'arrowup':
-                        templeGroup.rotation.x -= speed * 0.5;
-                        moved = true;
-                        break;
-                    case 's': case 'arrowdown':
-                        templeGroup.rotation.x += speed * 0.5;
-                        moved = true;
-                        break;
-                }
-                if (moved) {
-                    isAutoRotating = false;
-                    controls.autoRotate = false;
-                }
-            });
-        }
+        // Keyboard controls removed as per user request
 
         // Initialize the 3D scene in the background (but don't start narration yet)
         let journeyStarted = false;
