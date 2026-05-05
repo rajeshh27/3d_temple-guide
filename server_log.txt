@@ -1,4 +1,1 @@
 Temple Backend running at http://localhost:3000
-Generating voice using ID: inGcvmoPgbvKUk9uCvHu for text: "Welcome to the templ..."
-ElevenLabs API Error: 401
-Voice Generation Failed: Invalid ElevenLabs API Key

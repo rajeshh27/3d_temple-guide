@@ -26,12 +26,12 @@ start /B "Heritage Backend" cmd /c "node server.js > server_log.txt 2>&1"
 
 echo [4/4] Launching Discovery...
 timeout /t 3 /nobreak > nul
-start "" "http://localhost:3000/temple_dashboard.html"
+start "" "http://localhost:3000/frontend/index.html"
 
 echo.
 echo ==============================================================
 echo    SYSTEM IS ACTIVE!
-echo    Dashboard: http://localhost:3000
+echo    Dashboard: http://localhost:3000/frontend/index.html
 echo ==============================================================
 echo.
 echo Press any key to exit this launcher (Server will stay running).
