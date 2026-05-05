@@ -785,20 +785,17 @@
                 <div id="chatbot-panel">
                     <!-- Header -->
                     <div class="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-                        <div id="bot-avatar" class="bot-avatar" style="background:rgba(255,150,30,0.2)">🕉️</div>
+                        <div id="bot-avatar" class="bot-avatar" style="background:rgba(60,180,100,0.15)">📜</div>
                         <div class="flex-1">
-                            <div id="bot-name" class="text-xs font-semibold text-amber-300">Rishi Veda</div>
-                            <div class="text-[9px] text-white/40">Ancient Sage · Online</div>
+                            <div id="bot-name" class="text-xs font-semibold text-amber-300">Dr. Arjun Kumar</div>
+                            <div class="text-[9px] text-white/40">Temple Historian · Online</div>
                         </div>
                         <button onclick="toggleChat()" class="text-white/30 hover:text-white text-lg leading-none">✕</button>
                     </div>
 
-                    <!-- Persona Selector -->
-                    <div class="flex gap-2 px-3 py-2 overflow-x-auto" style="scrollbar-width:none">
-                        <div class="persona-chip selected" data-persona="0" onclick="switchPersona(0)">🕉️ Sage</div>
-                        <div class="persona-chip" data-persona="1" onclick="switchPersona(1)">🪔 Priest</div>
-                        <div class="persona-chip" data-persona="2" onclick="switchPersona(2)">💃 Dancer</div>
-                        <div class="persona-chip" data-persona="3" onclick="switchPersona(3)">📜 Historian</div>
+                    <!-- Historian Badge -->
+                    <div class="px-3 py-2">
+                        <div class="persona-chip selected inline-block">📜 Historian</div>
                     </div>
 
                     <!-- Messages -->
@@ -1483,33 +1480,6 @@
 
         // ── Indian Culture Chatbot Logic ──
         const personas = [
-            { name:'Rishi Veda', emoji:'🕉️', role:'Ancient Sage',
-              color:'rgba(255,150,30,0.2)', greeting:'Namaste 🙏 I am Rishi Veda. Ask me about the Vedic origins of these sacred structures.',
-              qs:['What is a Gopuram?','Tell me about Shiva','Why are temples built?'],
-              answers:{
-                'What is a Gopuram?':'A Gopuram (கோபுரம்) is the majestic gateway tower of a Dravidian temple. Rising up to 13 stories, each tier is adorned with thousands of painted stucco figures depicting deities and epics. 🏛️',
-                'Tell me about Shiva':'Lord Shiva, the Mahadeva, is the destroyer and transformer in the Hindu Trinity. In Tamil Nadu, he is worshipped as Nataraja — the Cosmic Dancer whose dance sustains the universe. 💫',
-                'Why are temples built?':'Temples are cosmic models of Mount Meru — the mythical centre of the universe. The Vimana (tower) represents the mountain, and the Garbhagriha (sanctum) is the cave at its heart. 🌄'
-              }
-            },
-            { name:'Pujari Ananda', emoji:'🪔', role:'Temple Priest',
-              color:'rgba(255,220,80,0.15)', greeting:'Vanakkam! 🪔 I am Pujari Ananda. I will guide you through the rituals and daily life of this sacred temple.',
-              qs:['What is Abhishekam?','Daily rituals?','What is prasad?'],
-              answers:{
-                'What is Abhishekam?':'Abhishekam is the sacred bathing ritual of the deity. The idol is bathed with milk, curd, honey, coconut water and rose water while priests chant Vedic hymns. It purifies and energizes the sanctum. 🫧',
-                'Daily rituals?':'Temples follow a strict schedule: Thiruvanandal (dawn), Kalasanthi (morning), Uchikalam (noon), Sayarakshai (evening) and Ardhajama (night) — 6 services keeping the deity attended at all times. ⏰',
-                'What is prasad?':'Prasad is blessed food offered to the deity and then distributed to devotees. It carries the divine energy of the temple. Common prasads include pongal, chakkarai (sugar), and coconut. 🥥'
-              }
-            },
-            { name:'Devadasi Meena', emoji:'💃', role:'Classical Dancer',
-              color:'rgba(200,80,200,0.15)', greeting:'Namaskaram! 💃 I am Meena, a Bharatanatyam dancer. I will tell you how art and dance are woven into temple life.',
-              qs:['What is Bharatanatyam?','Temple art forms?','What are Devadasis?'],
-              answers:{
-                'What is Bharatanatyam?':'Bharatanatyam is one of the oldest classical dance forms of India, originating in Tamil Nadu. It combines Natya (expression), Nritta (pure dance) and Nritya (expressive dance) — a living prayer in motion. 🌸',
-                'Temple art forms?':'Tamil temples are encyclopedias of art. Stone sculptures, bronze castings (like Nataraja), mural paintings, Kolam patterns and the music of Nadaswaram flutes all form a unified divine offering. 🎨',
-                'What are Devadasis?':'Devadasis were women dedicated to temple service as dancers and musicians. They performed Bharatanatyam as an offering to the deity — art as worship, movement as prayer. 🕯️'
-              }
-            },
             { name:'Dr. Arjun Kumar', emoji:'📜', role:'Temple Historian',
               color:'rgba(60,180,100,0.15)', greeting:'Hello! 📜 I am Dr. Arjun Kumar. Ask me about the dynasties and history behind these magnificent structures.',
               qs:['Who built Brihadeeswarar?','Chola Dynasty facts','UNESCO temples of TN'],
@@ -1625,9 +1595,7 @@
                 this.languages = [
                     { code: 'en', name: 'English', speechCode: 'en-IN', flag: '🇬🇧' },
                     { code: 'ta', name: 'Tamil', speechCode: 'ta-IN', flag: '🇮🇳' },
-                    { code: 'hi', name: 'Hindi', speechCode: 'hi-IN', flag: '🇮🇳' },
-                    { code: 'te', name: 'Telugu', speechCode: 'te-IN', flag: '🇮🇳' },
-                    { code: 'kn', name: 'Kannada', speechCode: 'kn-IN', flag: '🇮🇳' }
+                    { code: 'hi', name: 'Hindi', speechCode: 'hi-IN', flag: '🇮🇳' }
                 ];
                 this.renderLangOptions();
             }
