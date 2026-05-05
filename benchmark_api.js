@@ -5,7 +5,7 @@ async function benchmarkAPI(endpoint, payload, name) {
     console.log(`\nBenchmarking ${name}...`);
     const start = performance.now();
     try {
-        const response = await axios.post(`http://localhost:3000${endpoint}`, payload);
+        const response = await axios.post(`https://api-3dtempleguide.vercel.app${endpoint}`, payload);
         const end = performance.now();
         console.log(`Status: ${response.status}`);
         console.log(`Latency: ${(end - start).toFixed(2)}ms`);

@@ -1566,7 +1566,7 @@
             const p = personas[activePersona];
             
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: q, persona: p.name })
@@ -1589,7 +1589,7 @@
             const p = personas[activePersona];
             
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: txt, persona: p.name })
@@ -1611,7 +1611,7 @@
 
         // ── AI Narration Manager ──
         const ERA_MAP_CLIENT = { 0: 'ancient', 1: 'middle', 2: 'modern' };
-        const API_BASE = ''; // Use local server
+        const API_BASE = 'https://api-3dtempleguide.vercel.app';
         // Temple ID — will come from URL params in Phase 4, defaults to brihadeeswarar
         const CURRENT_TEMPLE_ID = new URLSearchParams(window.location.search).get('temple') || 'brihadeeswarar';
 
@@ -1691,40 +1691,54 @@
                 this.isSpeaking = true;
                 this.updateUI();
 
-                this.showStatus(`Generating ElevenLabs voice...`);
+                this.showStatus(`Preparing voice...`);
 
                 try {
-                    const response = await fetch(`${API_BASE}/api/voice`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            text: text,
-                            voiceId: eraKey, // Map era to voice
-                            lang: this.currentLang 
-                        })
-                    });
-
-                    if (!response.ok) throw new Error("TTS Failed");
-
-                    const blob = await response.blob();
-                    const url = URL.createObjectURL(blob);
+                    const utterance = new SpeechSynthesisUtterance(text);
                     
-                    this.audio = new Audio(url);
-                    this.audio.play();
+                    // Match language speech code (e.g. 'ta-IN')
+                    const langObj = this.languages.find(l => l.code === this.currentLang);
+                    utterance.lang = langObj ? langObj.speechCode : 'en-IN';
+                    
+                    // Set pitch and rate for a more "narrator" feel
+                    utterance.pitch = 0.9; // Slightly deeper for authority
+                    utterance.rate = 0.95; // Slightly slower for clarity
+                    
+                    // Try to find a high-quality or local-language voice
+                    const voices = window.speechSynthesis.getVoices();
+                    const preferredVoice = voices.find(v => v.lang.startsWith(this.currentLang) && v.localService) 
+                                        || voices.find(v => v.lang.startsWith(this.currentLang));
+                    
+                    if (preferredVoice) {
+                        utterance.voice = preferredVoice;
+                        console.log(`Using voice: ${preferredVoice.name} for ${this.currentLang}`);
+                    }
 
-                    this.showStatus(`Narrating: ${text.substring(0, 40)}...`);
+                    utterance.onstart = () => {
+                        this.showStatus(`Narrating: ${text.substring(0, 40)}...`);
+                    };
 
-                    this.audio.onended = () => {
+                    utterance.onend = () => {
                         this.isSpeaking = false;
                         this.isPaused = false;
                         this.updateUI();
                         this.hideStatus();
-                        URL.revokeObjectURL(url);
                     };
 
+                    utterance.onerror = (event) => {
+                        console.error("SpeechSynthesis Error:", event);
+                        this.showStatus("⚠️ Speech Synthesis failed.");
+                        this.isSpeaking = false;
+                        this.updateUI();
+                        setTimeout(() => this.hideStatus(), 3000);
+                    };
+
+                    this.utterance = utterance;
+                    window.speechSynthesis.speak(utterance);
+
                 } catch (err) {
-                    console.error("ElevenLabs Error:", err);
-                    this.showStatus("⚠️ Voice failed. Check API Key.");
+                    console.error("Web Speech API Error:", err);
+                    this.showStatus("⚠️ Local voice engine error.");
                     this.isSpeaking = false;
                     this.updateUI();
                     setTimeout(() => this.hideStatus(), 3000);
@@ -1732,25 +1746,22 @@
             }
 
             togglePlayPause() {
-                if (!this.audio) return;
-                
-                if (this.isPaused) {
-                    this.audio.play();
-                    this.isPaused = false;
-                    this.showStatus('Narrating...');
-                } else if (this.isSpeaking) {
-                    this.audio.pause();
-                    this.isPaused = true;
-                    this.showStatus('Paused');
+                if (window.speechSynthesis.speaking) {
+                    if (this.isPaused) {
+                        window.speechSynthesis.resume();
+                        this.isPaused = false;
+                        this.showStatus('Narrating...');
+                    } else {
+                        window.speechSynthesis.pause();
+                        this.isPaused = true;
+                        this.showStatus('Paused');
+                    }
                 }
                 this.updateUI();
             }
 
             stop() {
-                if (this.audio) {
-                    this.audio.pause();
-                    this.audio = null;
-                }
+                window.speechSynthesis.cancel();
                 this.isSpeaking = false;
                 this.isPaused = false;
                 this.updateUI();
