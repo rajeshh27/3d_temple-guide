@@ -273,20 +273,30 @@
             position: absolute;
             bottom: 60px;
             left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,200,80,0.25);
-            border-radius: 24px;
-            padding: 12px 24px;
-            color: rgba(255,230,160,0.9);
+            background: rgba(15, 10, 5, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 180, 80, 0.5);
+            border-radius: 40px;
+            padding: 14px 28px;
+            color: #ffd590;
             font-size: 13px;
-            font-weight: 500;
-            text-align: center;
+            font-weight: 600;
             white-space: nowrap;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: arPulse 2s infinite ease-in-out;
             transition: opacity 0.4s;
-            pointer-events: none; /* Hint doesn't block rotation swipes */
         }
         #ar-place-hint.hidden { opacity: 0; pointer-events: none; }
+
+        @keyframes arPulse {
+            0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.9; }
+            50% { transform: translateX(-50%) scale(1.05); opacity: 1; border-color: rgba(255, 200, 100, 0.8); }
+        }
 
 
         /* ══════════════════════════════════════════
@@ -728,8 +738,9 @@
                 <button id="space-toggle" class="pointer-events-auto glass-btn p-3 rounded-full text-white" title="View in Space">
                     <span class="material-symbols-outlined">rocket_launch</span>
                 </button>
-                <button id="ar-toggle" class="pointer-events-auto glass-btn p-3 rounded-full text-white">
-                    <span class="material-symbols-outlined">center_focus_weak</span>
+                <button id="ar-toggle" class="pointer-events-auto glass-btn p-3 rounded-full text-white" title="View in AR — Place Temple in Your Space"
+                        onclick="window.location.href='temple_ar_view.html'">
+                    <span class="material-symbols-outlined">view_in_ar</span>
                 </button>
 
                 <!-- Music Toggle Button -->
@@ -1164,6 +1175,7 @@
         let   lastTouchX = 0;
         let   initialPinchDistance = null;
         let   initialScale = 1;
+        let   arShadowMesh = null;
 
         // ── Reticle: a golden ring that snaps to detected surfaces ──
         function createReticle() {
@@ -1204,6 +1216,19 @@
             arReticle.matrixAutoUpdate = false;
             arReticle.visible = false;
             scene.add(arReticle);
+
+            // Create a fake shadow mesh for grounding
+            const shadowGeo = new THREE.CircleGeometry(0.5, 32);
+            shadowGeo.rotateX(-Math.PI / 2);
+            const shadowMat = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                transparent: true,
+                opacity: 0.4,
+                side: THREE.DoubleSide
+            });
+            arShadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+            arShadowMesh.visible = false;
+            scene.add(arShadowMesh);
         }
 
         // ── Webcam AR Fallback ──
@@ -1316,7 +1341,7 @@
 
             // Store original scale and hide temple for placement
             arOriginalScale = templeGroup.scale.clone();
-            templeGroup.scale.setScalar(0.04); 
+            templeGroup.scale.setScalar(0.25); // Increased initial scale (e.g. 3 meters)
             templeGroup.visible = false;
             templeInAR = false;
 
@@ -1367,8 +1392,9 @@
                 );
                 const zoomFactor = currentDistance / initialPinchDistance;
                 const newScale = initialScale * zoomFactor;
-                const clampedScale = Math.max(0.01, Math.min(newScale, 0.5));
+                const clampedScale = Math.max(0.01, Math.min(newScale, 2.0)); // Increased max scale to 2.0
                 templeGroup.scale.setScalar(clampedScale);
+                if (arShadowMesh) arShadowMesh.scale.setScalar(clampedScale * 20);
             }
         }
 
@@ -1397,20 +1423,20 @@
             // Direct Interaction: Reset rotation to face user initially
             templeGroup.rotation.set(0, 0, 0);
 
-            // Optional: small "thump" animation when placed
-            templeGroup.position.y += 0.2;
-            new Promise(r => {
-                let start = Date.now();
-                const anim = () => {
-                    let t = (Date.now() - start) / 200;
-                    if (t > 1) { templeGroup.position.y = pos.y; return; }
-                    templeGroup.position.y = pos.y + 0.2 * (1 - t);
-                    requestAnimationFrame(anim);
-                };
-                anim();
-            });
+            // Snap exactly to surface
+            templeGroup.position.copy(pos);
+            
+            arPlaceHint.innerHTML = "✨ Temple Placed! Swipe to rotate / Pinch to scale.";
+            
+            // Show and position shadow
+            if (arShadowMesh) {
+                arShadowMesh.position.copy(pos);
+                // Offset slightly above surface to prevent z-fighting
+                arShadowMesh.position.y += 0.001; 
+                arShadowMesh.visible = true;
+                arShadowMesh.scale.setScalar(templeGroup.scale.x * 20); 
+            }
 
-            arPlaceHint.innerHTML = "✨ Temple Placed! Swipe to rotate.";
             setTimeout(() => {
                 if (isAR) arPlaceHint.classList.add('hidden');
             }, 3000);
@@ -1447,6 +1473,9 @@
             templeGroup.quaternion.identity();
             templeGroup.visible = true;
             templeInAR = false;
+            
+            // Hide shadow
+            if (arShadowMesh) arShadowMesh.visible = false;
 
             // Restore background & space effects
             scene.background = originalBackground;
