@@ -7,8 +7,8 @@ async function listModels() {
         // There is no direct listModels in the client SDK like this, 
         // but we can try to initialize and check.
         // Actually, let's just try the most common one: 'gemini-1.5-flash' again but with a different approach.
-        console.log("Testing API Key with gemini-1.5-flash...");
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        console.log("Testing API Key with gemini-flash-latest...");
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent("Hi");
         console.log("Success:", result.response.text());
     } catch (err) {
