@@ -45,9 +45,8 @@ app.post('/api/chat', async (req, res) => {
 
 
 // --- AI Narrative Engine ---
-// Generates historically rich narration text for a specific temple, era, and language.
-// The frontend will feed this text to Web Speech API for playback.
-app.get('/api/narrative', async (req, res) => {
+// Directly returns the pre-written narration from temple_data.js.
+app.get('/api/narrative', (req, res) => {
     const { templeId, era, lang } = req.query;
 
     // Validate temple
@@ -78,89 +77,31 @@ app.get('/api/narrative', async (req, res) => {
         });
     }
 
-    try {
-        // Check for valid API key
-        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_key_here') {
-            // Return the pre-written narration (check if it's a multi-lang object or a simple string)
-            let fallbackText = "";
-            if (typeof eraData.narration === 'object' && eraData.narration !== null) {
-                fallbackText = eraData.narration[language.code] || eraData.narration['en'];
-            } else {
-                fallbackText = eraData.narration;
-            }
-
-            if (!fallbackText) {
-                fallbackText = `Welcome to ${temple.name}, located in ${temple.location}. ` +
-                    `Built by the ${temple.dynasty} in ${temple.yearBuilt}. ` +
-                    eraData.facts.join(" ");
-            }
-
-            return res.json({
-                text: fallbackText,
-                templeId: temple.id,
-                era: eraKey,
-                lang: language.code,
-                speechCode: language.speechCode,
-                source: "fallback"
-            });
-        }
-
-        const prompt = `You are a world-class heritage narrator and storyteller. 
-Generate a spoken narration about ${temple.name} (${temple.location}) for the "${eraData.label}" era.
-
-CONTEXT — Use these historical facts as your foundation:
-${eraData.facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}
-
-Additional context:
-- Dynasty: ${temple.dynasty}
-- Year Built: ${temple.yearBuilt}
-- Deity: ${temple.deity}
-- Key highlights: ${temple.highlights.join(", ")}
-
-RULES:
-1. Write the narration entirely in ${language.name} language.
-2. The tone should be warm, poetic, and reverent — like a museum audio guide narrated by a wise elder.
-3. Length: 4-6 sentences. It should take about 30-45 seconds to read aloud.
-4. Start with a welcoming phrase appropriate to the language and culture.
-5. Weave the historical facts into a flowing narrative — do NOT list them.
-6. End with an evocative sentence that makes the listener feel connected to the place.
-7. Output ONLY the narration text — no titles, labels, or markdown.`;
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-
-        res.json({
-            text: response.text(),
-            templeId: temple.id,
-            era: eraKey,
-            lang: language.code,
-            speechCode: language.speechCode,
-            source: "gemini"
-        });
-
-    } catch (err) {
-        console.warn("Gemini API unavailable. Using pre-written narration.");
-        // Use the pre-written narration as a high-quality fallback
-        let fallbackText = "";
-        if (typeof eraData.narration === 'object' && eraData.narration !== null) {
-            fallbackText = eraData.narration[language.code] || eraData.narration['en'];
-        } else {
-            fallbackText = eraData.narration;
-        }
-
-        if (!fallbackText) {
-            fallbackText = eraData.facts.join(". ") + ".";
-        }
-
-        res.json({
-            text: fallbackText,
-            templeId: temple.id,
-            era: eraKey,
-            lang: language.code,
-            speechCode: language.speechCode,
-            source: "fallback"
-        });
+    // Get the pre-written narration from data
+    let text = "";
+    if (typeof eraData.narration === 'object' && eraData.narration !== null) {
+        // Multi-language object format
+        text = eraData.narration[language.code] || eraData.narration['en'];
+    } else {
+        // String format (fallback)
+        text = eraData.narration;
     }
+
+    // Ultimate fallback if text is missing
+    if (!text) {
+        text = `Welcome to ${temple.name}. You are viewing the ${eraData.label} era. ` +
+               (eraData.facts ? eraData.facts[0] : "");
+    }
+
+    // Return the response directly
+    res.json({
+        text: text,
+        templeId: temple.id,
+        era: eraKey,
+        lang: language.code,
+        speechCode: language.speechCode,
+        source: "local_data"
+    });
 });
 
 
